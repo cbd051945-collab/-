@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>그날의 선택 | 완성형 방탈출</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#000;color:#eee;font-family:'Noto Sans KR',sans-serif;overflow:hidden;user-select:none}
+
+/* 티저 및 인트로 */
+#teaserContainer { position: fixed; inset: 0; background: #000; z-index: 500; display: flex; align-items: center; justify-content: center; }
+#teaserVideo { width: 100%; height: 100%; object-fit: contain; }
+#skipBtn { position: absolute; right: 30px; bottom: 30px; padding: 10px 25px; background: rgba(255,255,255,0.2); border: 1px solid #fff; color: #fff; cursor: pointer; display: none; z-index: 510; }
+#intro { position: fixed; inset: 0; z-index: 400; background: #000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+#startBtn { margin-top: 30px; padding: 15px 40px; background: #c81e1e; color: #fff; border: 0; border-radius: 5px; font-size: 20px; font-weight: 900; cursor: pointer; box-shadow: 0 0 20px rgba(200,0,0,0.5); }
+
+/* 게임 레이아웃 */
+#wrap{position:fixed;inset:0;background:#050505;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+#gameFrame{position:relative;width:min(100vw, 1100px);aspect-ratio:16/9;background:#111;overflow:hidden;border:2px solid #333}
+#room{position:absolute;inset:0;background-size:100% 100%;background-repeat:no-repeat;background-position:center;transition:opacity 0.4s ease}
+#room.fade{opacity:0}
+
+#top{position:absolute;top:0;left:0;right:0;height:50px;background:linear-gradient(180deg,rgba(0,0,0,0.8),transparent);z-index:10;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+#title{font-weight:900;font-size:22px;color:#c81e1e;text-shadow:0 0 10px #f00}
+#roomName{font-size:17px;font-weight:600}
+
+.hot{position:absolute;z-index:20;cursor:pointer;border-radius:10px;transition:0.3s}
+.hot:hover{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3)}
+.move:hover:after{content:"👣";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:35px}
+.clue:hover:after{content:"🔍";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:30px}
+.lock:hover:after{content:"🔒";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:30px}
+
+/* 인벤토리 */
+#inventoryBar{width:min(100vw, 1100px);height:100px;background:#151515;border:2px solid #333;border-top:0;display:flex;align-items:center;padding:0 20px;gap:15px}
+.invLabel{font-weight:900;color:#555;font-size:14px;writing-mode: vertical-lr;text-orientation: upright}
+.slot{width:70px;height:70px;border:1px solid #333;background:#0a0a0a;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;position:relative}
+.slot span{position:absolute;bottom:2px;font-size:10px;color:#888;width:100%;text-align:center}
+
+/* 모달 및 UI */
+#modal{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.9);display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+#modal.show{display:flex}
+#modalBox{width:min(500px,90vw);background:#111;border:1px solid #444;border-radius:12px;overflow:hidden}
+#modalHead{padding:15px;background:#222;display:flex;justify-content:space-between}
+#modalBody{padding:25px;line-height:1.7}
+#answer{width:100%;padding:12px;margin-top:15px;background:#000;border:1px solid #555;color:#fff;display:none;}
+#actions{margin-top:20px;display:flex;gap:10px;justify-content:flex-end}
+.action{padding:10px 20px;background:#333;border:0;color:#fff;cursor:pointer;border-radius:5px}
+.action.red{background:#911}
+#toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(200,0,0,0.9);padding:15px 30px;z-index:1100;display:none;font-weight:bold;}
+</style>
+</head>
+<body>
+
+<div id="teaserContainer">
+    <video id="teaserVideo" autoplay muted><source src="teaser.mp4" type="video/mp4"></video>
+    <button id="skipBtn" onclick="endTeaser()">SKIP >></button>
+</div>
+
+<div id="intro">
+    <h1 style="font-size:60px; color:#c81e1e; margin-bottom:10px;">그날의 선택</h1>
+    <p style="font-size:18px; color:#aaa;">비밀의 끝에서 당신의 선택을 기다립니다.</p>
+    <button id="startBtn" onclick="startGame()">게임 시작</button>
+</div>
+
+<div id="wrap">
+  <div id="gameFrame">
+    <div id="room"></div>
+    <div id="top">
+      <div id="title">그날의 선택</div>
+      <div id="roomName">거실</div>
+      <button onclick="location.reload()" style="background:#333;border:0;color:#eee;padding:5px 10px;cursor:pointer;">리셋</button>
+    </div>
+    <div id="hotspots"></div>
+  </div>
+  <div id="inventoryBar">
+    <div class="invLabel">INVENTORY</div>
+    <div id="inventory" style="display:flex;gap:12px"></div>
+  </div>
+</div>
+
+<div id="modal">
+  <div id="modalBox">
+    <div id="modalHead"><div id="modalTitle"></div><button onclick="closeModal()" style="background:none;border:0;color:#fff;font-size:24px;">×</button></div>
+    <div id="modalBody"><div id="modalText"></div><input id="answer" type="text"><div id="actions"></div></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const IMG = {
+  living: "living.png", storage: "storage.png", bathroom: "bathroom.png", hall: "hall.png",
+  yh: "yh.png", dg: "dg.png", jh: "jh.png", cj: "cj.png", basement: "basement.png", final: "final.png"
+};
+
+const ITEMS = {
+  dryer: {icon:"💨", name:"드라이기", desc:"거울의 김을 제거할 수 있습니다."},
+  cam: {icon:"📹", name:"캠코더", desc:"과거에 잊고있었던 불쾌한 사건이 담긴 모습이 담겨있다."},
+  photo: {icon:"🖼️", name:"필름사진", desc:"뒷면: '그날 밤, 누가 먼저 움직였나'"},
+  medical: {icon:"📄", name:"진단서", desc:"암호: WKDW QLJKW (-3)"},
+  chat: {icon:"💬", name:"채팅기록", desc:"동건의 그 당시 사건 은폐 시도 기록입니다."},
+  blueprint: {icon:"🗺️", name:"지하 설계도", desc:"지하실로 가는 통로가 표시되어 있습니다."},
+  bKey: {icon:"🔑", name:"지하실 열쇠", desc:"찬종의 방 트랩도어를 여는 열쇠입니다."}
+};
+
+let state = {
+  room: "living", items: [],
+  flags: { storageOpen: false, mirrorCleared: false, blueprintFound: false, p1Solved: false, p2Solved: false }
+};
+
+const teaser = document.getElementById('teaserVideo');
+const skipBtn = document.getElementById('skipBtn');
+teaser.onplay = () => { setTimeout(() => { skipBtn.style.display = 'block'; }, 5000); };
+teaser.onended = () => { endTeaser(); };
+function endTeaser() { teaser.pause(); document.getElementById('teaserContainer').style.display = 'none'; document.getElementById('intro').style.display = 'flex'; }
+function startGame() { document.getElementById('intro').style.display = 'none'; render(); }
+
+const ROOMS = {
+  living: { name: "거실", img: IMG.living, hot: [{x:53, y:18, w:7, h:12, type:"clue", fn:()=>getItem('photo', '사진 뒷면의 단서 발견.')}, {x:45, y:65, w:8, h:10, type:"clue", fn:()=>msg("술병", "라벨에 '08.14'.")}, {x:73, y:28, w:8, h:18, type:"lock", fn:openStorage}, {x:5, y:30, w:10, h:50, type:"move", to:"hall"}, {x:25, y:75, w:12, h:15, type:"move", to:"bathroom"}] },
+  storage: { name: "지하 창고", img: IMG.storage, hot: [{x:22, y:78, w:12, h:15, type:"clue", fn:()=>getItem('cam', '낡은 캠코더를 얻었습니다.\n\n"과거게 잊고있었던 불쾌한 사건이 담긴 모습이 담겨있다."')}, {x:85, y:60, w:10, h:30, type:"move", to:"living"}] },
+  bathroom: { name: "화장실", img: IMG.bathroom, hot: [{x:7.5, y:2, w:28, h:50, type:"clue", fn:checkMirror}, {x:33, y:54, w:15, h:10, type:"clue", fn:()=>getItem('dryer', '드라이기를 챙겼습니다.')}, {x:42, y:85, w:16, h:12, type:"move", to:"living"}] },
+  hall: { name: "2층 복도", img: IMG.hall, hot: [{x:0, y:45, w:30, h:55, type:"move", to:"living"}, {x:39, y:12, w:6, h:45, type:"move", to:"dg"}, {x:54, y:21, w:10, h:28, type:"move", to:"yh"}, {x:71, y:15, w:6, h:45, type:"move", to:"jh"}, {x:81, y:4, w:13, h:78, type:"move", to:"cj"}] },
+  yh: { name: "영휘의 방", img: IMG.yh, hot: [{x:57, y:50, w:8, h:10, type:"clue", fn:()=>getItem('medical', '진단서 획득.')}, {x:45, y:85, w:12, h:12, type:"move", to:"hall"}] },
+  dg: { name: "동건의 방", img: IMG.dg, hot: [{x:50, y:55, w:12, h:15, type:"clue", fn:()=>getItem('chat', '단톡방 대화 확인.')}, {x:45, y:85, w:12, h:12, type:"move", to:"hall"}] },
+  jh: { name: "정현의 방", img: IMG.jh, hot: [{x:52, y:55, w:10, h:18, type:"clue", fn:()=>getItem('bKey', '낡은 지하실 열쇠를 발견했습니다.')}, {x:88, y:10, w:12, h:80, type:"move", to:"hall"}] },
+  cj: { name: "찬종의 방", img: IMG.cj, hot: [{x:35, y:42, w:10, h:5, type:"clue", fn:()=>getItem('blueprint', '지하실 설계도를 찾았습니다.')}, {x:32, y:68, w:35, h:22, type:"lock", fn:checkTrapdoor}, {x:0, y:10, w:10, h:80, type:"move", to:"hall"}] },
+  basement: {
+    name: "지하실", img: IMG.basement, hot: [
+      {x:18, y:53, w:15, h:20, type:"clue", fn:()=>openSecurityModal(1)},
+      {x:83, y:45, w:10, h:15, type:"clue", fn:()=>openSecurityModal(2)},
+      {x:48, y:30, w:10, h:40, type:"lock", fn:tryEnterFinal},
+      {x:45, y:10, w:12, h:12, type:"move", to:"hall"}
+    ]
+  },
+  final: { name: "재현실", img: IMG.final, hot: [{x:40, y:30, w:20, h:40, type:"clue", fn:finalChoice}] }
+};
+
+function render() {
+  const r = ROOMS[state.room];
+  const roomEl = document.getElementById('room');
+  roomEl.classList.add('fade');
+  setTimeout(() => {
+    roomEl.style.backgroundImage = `url(${r.img})`;
+    document.getElementById('roomName').textContent = r.name;
+    const hotContainer = document.getElementById('hotspots');
+    hotContainer.innerHTML = '';
+    r.hot.forEach(h => {
+      const d = document.createElement('div');
+      d.className = `hot ${h.type}`;
+      d.style.left = h.x + '%'; d.style.top = h.y + '%';
+      d.style.width = h.w + '%'; d.style.height = h.h + '%';
+      d.onclick = () => { if(h.to) move(h.to); else if(h.fn) h.fn(); };
+      hotContainer.appendChild(d);
+    });
+    roomEl.classList.remove('fade');
+  }, 250);
+  renderInv();
+}
+
+function renderInv() {
+  const inv = document.getElementById('inventory');
+  inv.innerHTML = '';
+  for(let i=0; i<8; i++) {
+    const id = state.items[i];
+    const s = document.createElement('div');
+    s.className = 'slot';
+    if(id) { s.innerHTML = ITEMS[id].icon + `<span>${ITEMS[id].name}</span>`; s.onclick = () => msg(ITEMS[id].name, ITEMS[id].desc); }
+    inv.appendChild(s);
+  }
+}
+
+function move(to) {
+  if(to === 'hall' && !state.flags.mirrorCleared) return toast("거울의 비밀을 풀어야 합니다.");
+  if(to === 'basement' && !state.flags.blueprintFound) return toast("지하실 설계도가 필요합니다.");
+  state.room = to; render();
+}
+
+function checkTrapdoor() {
+  if (!state.flags.blueprintFound) {
+    msg("잠긴 문", "바닥에 문이 있지만 건물의 구조를 모릅니다. 설계도를 먼저 찾아야 합니다.");
+  } else if (state.items.includes('bKey')) {
+    msg("지하 통로", "열쇠가 꼭 맞습니다. 지하실로 내려가시겠습니까?", [{text: "내려간다", fn: "move('basement')", red: true}]);
+  } else {
+    msg("잠긴 문", "설계도에 표시된 통로지만 열쇠가 필요합니다.");
+  }
+}
+
+function tryEnterFinal() {
+  const f = state.flags;
+  if (!f.p1Solved && !f.p2Solved) {
+    msg("잠긴 문", "문이 굳게 잠겨있다. 이 문을 열 수있는 방법이 어디 없을까?");
+  } else if (f.p1Solved && f.p2Solved) {
+    move('final');
+  } else {
+    msg("잠긴 문", "아까 전 보다는 문의 잠금장치가 헐거워 졌다. 그러나 아직 더 남은것 같다.");
+  }
+}
+
+function openSecurityModal(num) {
+  if(num === 1 && state.flags.p1Solved) return msg("완료", "보안이 해제되었습니다.");
+  if(num === 2 && state.flags.p2Solved) return msg("완료", "보안이 해제되었습니다.");
+
+  const title = num === 1 ? "CCTV 보안 단말기" : "녹음 장치 보안";
+  // 요청하신 힌트로 변경
+  const hint = num === 1 ? "CCTV : 진단서 암호 해독" : "'QR RQH PRYHG'-3";
+  
+  msg(title, hint);
+  const input = document.getElementById('answer');
+  input.style.display = 'block'; input.value = '';
+  document.getElementById('actions').innerHTML = `<button class="action red" onclick="solveSecurity(${num})">해제</button>`;
+}
+
+function solveSecurity(num) {
+  const val = document.getElementById('answer').value.toUpperCase().replace(/ /g,'');
+  const target = num === 1 ? 'THATNIGHT' : 'NOONEMOVED';
+  
+  if (val === target) {
+    if (num === 1) state.flags.p1Solved = true; else state.flags.p2Solved = true;
+    
+    if (state.flags.p1Solved && state.flags.p2Solved) {
+      msg("해제 성공", "꿈쩍도 안하던 문의 잠금 장치가 모두 풀렸다.");
+    } else {
+      msg("해제 성공", "문 너머에서 잠금이 풀리는 소리가 어렴풋이 들린다.");
+    }
+  } else {
+    toast("오답입니다.");
+  }
+}
+
+function checkMirror() {
+  if (state.flags.mirrorCleared) msg("거울", "'아무도 바로 움직이지 않았다.'");
+  else if (state.items.includes('dryer')) msg("거울", "드라이기를 사용하시겠습니까?", [{text: "사용", fn: "useDryerOnMirror()", red: true}]);
+  else msg("거울", "김이 서려 있습니다.");
+}
+function useDryerOnMirror() { state.flags.mirrorCleared = true; msg("거울", "글자가 나타납니다: '아무도 바로 움직이지 않았다.'"); }
+
+function msg(title, text, acts = []) {
+  document.getElementById('modalTitle').textContent = title; document.getElementById('modalText').textContent = text;
+  document.getElementById('answer').style.display = 'none';
+  const actionContainer = document.getElementById('actions'); actionContainer.innerHTML = '';
+  if(acts.length === 0) acts = [{text:"닫기", fn:"closeModal()"}];
+  acts.forEach(a => {
+    const btn = document.createElement('button'); btn.className = 'action ' + (a.red?'red':'');
+    btn.textContent = a.text; btn.onclick = () => eval(a.fn);
+    actionContainer.appendChild(btn);
+  });
+  document.getElementById('modal').classList.add('show');
+}
+
+function getItem(id, text) {
+  if(!state.items.includes(id)) { state.items.push(id); if(id === 'blueprint') state.flags.blueprintFound = true; renderInv(); msg("획득", text); }
+  else msg(ITEMS[id].name, ITEMS[id].desc);
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+function toast(t) {
+  const el = document.getElementById('toast'); el.textContent = t; el.style.display = 'block';
+  setTimeout(()=>el.style.display='none', 1800);
+}
+
+function openStorage() {
+  msg("창고문", "번호 입력");
+  const input = document.getElementById('answer'); input.style.display = 'block'; input.value = '';
+  document.getElementById('actions').innerHTML = `<button class="action red" onclick="checkStorage()">확인</button>`;
+}
+function checkStorage() {
+  if(document.getElementById('answer').value === '0814') { state.flags.storageOpen = true; closeModal(); move('storage'); }
+  else toast("오답");
+}
+
+function finalChoice() { msg("재현", "선택", [{text:"구조", red:true, fn:"end('구원')"}, {text:"방관", fn:"end('반복')"}]); }
+function end(type) {
+  closeModal();
+  document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#000;color:#fff">
+    <h1>${type} 엔딩</h1><button onclick="location.reload()">다시 시작</button></div>`;
+}
+</script>
+</body>
+</html>
